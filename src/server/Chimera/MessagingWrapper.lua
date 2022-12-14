@@ -2,7 +2,7 @@ local MessagingService = game:GetService("MessagingService")
 local Wrapper = {}
 Wrapper.__index = Wrapper
 
-function Wrapper.Channel(Id)
+function Wrapper.Channel(Id : string)
     local ChannelLink
     if Id == "Global" then 
         ChannelLink = "ChimeraGlobalRequest"
