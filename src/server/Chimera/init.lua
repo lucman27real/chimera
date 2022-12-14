@@ -4,10 +4,12 @@ local TeleportService = game:GetService("TeleportService")
 local Chimera = {}
 local Servers = {}
 
-local ServerObject = {}
-ServerObject.__index = ServerObject
-
+local ServerObject = require(script.ServerObject)
+local MessageWrapper = require(script.MessagingWrapper)
 --//cool little functions n stuffs
+
+local LocalServer = ServerObject.new()
+local GlobalChannel = MessageWrapper.GetGlobalChannel()
 
 function messageHandler(MessageEncoded)
 	local MsgRaw = HttpService:JSONDecode(MessageEncoded.Data)
@@ -15,49 +17,12 @@ function messageHandler(MessageEncoded)
 	local Request = MsgRaw[1]
 	local Server = MsgRaw[2]
 
-	if Request == "OpenServer" then
+	if Request == "UpdateServer" then
 		Servers[Server:GetId()] = Server
 	elseif Request == "CloseServer" then
 		Servers[Server:GetId()] = nil
 	end
 end
-
-function ServerObject.new()
-	return setmetatable({
-		JobId = game.JobId,
-		Keys = {},
-		OnTeleport = function(...) end,
-		RequestHandler = function(...) end,
-	}, ServerObject)
-end
-
-function ServerObject:GetId()
-	return self.JobId
-end
-
-function ServerObject:SetKey(name, val)
-	self.Keys[name] = val
-	MessagingService:PublishAsync("ChimeraGlobalRequest", { "OpenServer", self })
-end
-
-function ServerObject:GetKey(name)
-	return self.Keys[name]
-end
-
-function ServerObject:Message(Targets, MessageData)
-	if self.JobId ~= game.JobId then
-		warn("Chimera: Trying to message from a foreign server.")
-		return
-	end
-	if Targets:GetId() then --// if Targets (list) is a ServerObject, then
-		Targets = { Targets }
-	end
-	for _, Target in Targets do
-		MessagingService:PublishAsync("ChimeraRequestId" .. Target.JobId, { "PrivateMessage", MessageData })
-	end
-end
-
-local LocalServer = ServerObject.new()
 
 function Chimera.ThisServer()
 	return LocalServer
@@ -96,20 +61,13 @@ function Chimera.TeleportToServer(PlayerList, ServerObject: table, TeleportData:
 	TeleportService:TeleportAsync(game.PlaceId, PlayerList, TeleportOptions)
 end
 
---//Chimera actual setup
+LocalServer.Channel:Listen(function(...) LocalServer.RequestHandler(...) end)
 
-MessagingService:PublishAsync("ChimeraGlobalRequest", { "OpenServer", LocalServer })
-MessagingService:SubscribeAsync("ChimeraGlobalRequest", messageHandler)
-MessagingService:SubscribeAsync("ChimeraRequestId" .. LocalServer:GetId(), function(MessageEncoded)
-	if LocalServer.RequestHandler then
-		LocalServer.RequestHandler(MessageEncoded)
-	else
-		messageHandler(MessageEncoded)
-	end
-end)
+GlobalChannel:Post('UpdateServer',LocalServer)
+GlobalChannel:Listen(messageHandler)
 
 game:BindToClose(function()
-	MessagingService:PublishAsync("ChimeraGlobalRequest", { "CloseServer", LocalServer })
+	GlobalChannel:Post('CloseServer',LocalServer)
 end)
 
 return Chimera
