@@ -1,4 +1,3 @@
-local MessagingService = game:GetService("MessagingService")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 
@@ -10,7 +9,7 @@ local _globalChannel = MessagingWrapper.GetGlobalChannel()
 
 local serverList = {}
 
-local function messageHandler(MessageEncoded : table)
+local function messageHandler(MessageEncoded: table)
 	local RawMessage = HttpService:JSONDecode(MessageEncoded.Data)
 
 	local Request = RawMessage[1]
@@ -23,32 +22,31 @@ local function messageHandler(MessageEncoded : table)
 	end
 end
 
-
-_localServer.Channel:Listen(function(...) 
-	_localServer.RequestHandler(...) 
+_localServer.Channel:Listen(function(...)
+	_localServer.RequestHandler(...)
 end)
 
-_globalChannel:Post('UpdateServer',_localServer)
+_globalChannel:Post("UpdateServer", _localServer)
 _globalChannel:Listen(messageHandler)
 
 game:BindToClose(function()
-	_globalChannel:Post('CloseServer',_localServer)
+	_globalChannel:Post("CloseServer", _localServer)
 end)
 
 local Chimera = {
-	function ThisServer()
+	ThisServer = function()
 		return _localServer
-	end
+	end,
 
-	function AllServers()
+	AllServers = function()
 		return serverList
-	end
+	end,
 
-	function ServerFromId(JobId : string)
+	ServerFromId = function(JobId: string)
 		return serverList[JobId]
-	end
+	end,
 
-	function AllServersWith(KeyName, KeyValue)
+	AllServersWith = function(KeyName, KeyValue)
 		local PossibleServers = {}
 		for JobId, Data in serverList do
 			if Data[KeyName] == nil then
@@ -60,18 +58,18 @@ local Chimera = {
 			end
 		end
 		return PossibleServers
-	end
+	end,
 
-	function TeleportToServer(PlayerList, ServerObject: table, TeleportData: table)
+	TeleportToServer = function(PlayerList, TargetServer: table, TeleportData: table)
 		if typeof(PlayerList) ~= "table" then
 			PlayerList = { PlayerList }
 		end
 
 		local TeleportOptions = Instance.new("TeleportOptions")
-		TeleportOptions.ServerInstanceId = ServerObject.JobId
+		TeleportOptions.ServerInstanceId = TargetServer.JobId
 		TeleportOptions:SetTeleportData(TeleportData)
 		TeleportService:TeleportAsync(game.PlaceId, PlayerList, TeleportOptions)
-	end
-} 
+	end,
+}
 
 return Chimera
