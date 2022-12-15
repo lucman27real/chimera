@@ -1,28 +1,31 @@
 local ServerObject = {}
 ServerObject.__index = ServerObject
-local MessagingService = game:GetService("MessagingService")
+local MessagingWrapper = require(script.Parent.MessagingWrapper)
 
-local MessageWrapper = require(script.Parent.MessagingWrapper)
-local GlobalChannel = MessageWrapper.GetGlobalChannel()
+local GLOBAL_CHANNEL_LINK =  MessagingWrapper.GlobalChannelLink()
+local PRIVATE_CHANNEL_PREFIX =  MessagingWrapper.PrivateChannelLink()
 
 function ServerObject.new()
 	local self = setmetatable({
 		JobId = game.JobId,
 		Keys = {},
-        Channel = MessageWrapper.Channel(game.JobId),
-		OnTeleport = function(...) end,
-		RequestHandler = function(...) end,
+		OnTeleport = function() end,
+		RequestHandler = function() end,
 	}, ServerObject)
-    GlobalChannel:Post("UpdateServer",self)
+    MessagingWrapper.PublishAsync(GLOBAL_CHANNEL_LINK,"UpdateServer",self)
     return self 
 end
 
+function ServerObject.IsServer(MysteriousTable : table) 
+	return getmetatable(MysteriousTable).__index = ServerObject
+end 
+
 function ServerObject:SetPrivateRequestHandler(... : function) 
-    self.RequestHandler = ...
+    return self.RequestHandler = ...
 end 
 
 function ServerObject:SetOnTeleportHandler(... : function) 
-    self.OnTeleport = ...
+	return self.OnTeleport = ...
 end 
 
 function ServerObject:GetId()
@@ -31,7 +34,7 @@ end
 
 function ServerObject:SetKey(KeyName : string, KeyValue : string)
 	self.Keys[KeyName] = KeyValue
-    GlobalChannel:Post("UpdateServer",self)
+    return MessagingWrapper.PublishAsync(GLOBAL_CHANNEL_LINK,"UpdateServer",self)
 end
 
 function ServerObject:GetKey(KeyName : string)
@@ -47,6 +50,6 @@ function ServerObject:Message(Targets : table, MessageData : table)
 		Targets = { Targets }
 	end
 	for _, Target in Targets do
-        Target.Channel:Post("PrivateMessage", MessageData)
+        MessageWrapper.PublishAsync(PRIVATE_CHANNEL_PREFIX..Target.JobId, "PrivateMessage", MessageData)
     end
 end

@@ -1,18 +1,19 @@
-local MessagingService = game:GetService("MessagingService")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 
 local ServerObject = require(script.ServerObject)
 local MessagingWrapper = require(script.MessagingWrapper)
 
+
+local GLOBAL_CHANNEL_LINK =  MessagingWrapper.GlobalChannelLink()
+local PRIVATE_CHANNEL_PREFIX =  MessagingWrapper.PrivateChannelLink()
+
 local _localServer = ServerObject.new()
-local _globalChannel = MessagingWrapper.GetGlobalChannel()
+local _jobId = _localServer.JobId
 
 local serverList = {}
 
-local function messageHandler(MessageEncoded : table)
-	local RawMessage = HttpService:JSONDecode(MessageEncoded.Data)
-
+local function defaultMessageHandler(RawMessage : table)
 	local Request = RawMessage[1]
 	local Server = RawMessage[2]
 
@@ -23,32 +24,30 @@ local function messageHandler(MessageEncoded : table)
 	end
 end
 
-
-_localServer.Channel:Listen(function(...) 
-	_localServer.RequestHandler(...) 
+MessagingWrapper.Listen(PRIVATE_CHANNEL_PREFIX.._jobId, function(DecodedData,MessageEncoded)
+	_localServer.RequestHandler(DecodedData,MessageEncoded) 
 end)
 
-_globalChannel:Post('UpdateServer',_localServer)
-_globalChannel:Listen(messageHandler)
+MessagingWrapper.Listen(GLOBAL_CHANNEL_LINK,defaultMessageHandler)
 
 game:BindToClose(function()
-	_globalChannel:Post('CloseServer',_localServer)
+    MessagingWrapper.PublishAsync(GLOBAL_CHANNEL_LINK,"CloseServer",self)
 end)
 
 local Chimera = {
-	function ThisServer()
+	ThisServer = function()
 		return _localServer
-	end
+	end,
 
-	function AllServers()
+	AllServers = function()
 		return serverList
-	end
+	end,
 
-	function ServerFromId(JobId : string)
+	ServerFromId = function(JobId : string)
 		return serverList[JobId]
-	end
+	end,
 
-	function AllServersWith(KeyName, KeyValue)
+	AllServersWith = function(KeyName, KeyValue)
 		local PossibleServers = {}
 		for JobId, Data in serverList do
 			if Data[KeyName] == nil then
@@ -60,9 +59,9 @@ local Chimera = {
 			end
 		end
 		return PossibleServers
-	end
+	end,
 
-	function TeleportToServer(PlayerList, ServerObject: table, TeleportData: table)
+	TeleportToServer = function(PlayerList, ServerObject: table, TeleportData: table)
 		if typeof(PlayerList) ~= "table" then
 			PlayerList = { PlayerList }
 		end
@@ -71,7 +70,7 @@ local Chimera = {
 		TeleportOptions.ServerInstanceId = ServerObject.JobId
 		TeleportOptions:SetTeleportData(TeleportData)
 		TeleportService:TeleportAsync(game.PlaceId, PlayerList, TeleportOptions)
-	end
+	end,
 } 
 
 return Chimera
